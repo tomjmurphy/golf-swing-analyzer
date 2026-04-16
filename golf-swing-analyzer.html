@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golf Swing Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-page:    #f0ede8;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f3ef;
+  --bg-tertiary: #e8e5e0;
+  --text-primary: #1a1a18;
+  --text-secondary: #6b6b66;
+  --border: rgba(0,0,0,0.11);
+  --border-md: rgba(0,0,0,0.18);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --green: #1D9E75; --green-bg: #E1F5EE; --green-txt: #0F6E56;
+  --amber: #BA7517; --amber-bg: #FAEEDA; --amber-txt: #854F0B;
+  --red:   #D85A30; --red-bg:   #FAECE7; --red-txt:   #993C1D;
+  --blue-bg: #E6F1FB; --blue-txt: #0C447C;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page:    #161614;
+    --bg-primary: #1e1e1c;
+    --bg-secondary: #252522;
+    --bg-tertiary: #2c2c29;
+    --text-primary: #f0ede6;
+    --text-secondary: #9e9b94;
+    --border: rgba(255,255,255,0.09);
+    --border-md: rgba(255,255,255,0.16);
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 2rem 1rem 4rem;
+}
+
+.page { max-width: 920px; margin: 0 auto; }
+
+.page-header { margin-bottom: 2rem; }
+.page-header h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+.page-header p  { font-size: 13px; color: var(--text-secondary); }
+
+.card {
+  background: var(--bg-primary);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+.card + .card, .card + .two-col, .two-col + .card,
+.two-col + .two-col, .row4 + .two-col, .row4 + .card { margin-top: 12px; }
+
+.card-lbl { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 14px; }
+
+input[type="password"], input[type="text"] {
+  width: 100%;
+  padding: 9px 12px;
+  border: 0.5px solid var(--border-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input[type="password"]:focus, input[type="text"]:focus { border-color: var(--amber); }
+
+.key-row { display: flex; gap: 8px; align-items: center; }
+.key-note { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+.key-note a { color: var(--amber-txt); text-decoration: none; }
+.key-note a:hover { text-decoration: underline; }
+
+#dz {
+  border: 1.5px dashed var(--border-md);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  transition: background 0.15s;
+  margin-top: 12px;
+}
+#dz:hover { background: var(--bg-tertiary); }
+#dz .dz-icon { font-size: 40px; margin-bottom: 14px; }
+#dz p { font-size: 14px; color: var(--text-secondary); }
+#dz strong { color: var(--text-primary); font-weight: 500; }
+#fi { display: none; }
+
+#upload-section { margin-top: 12px; }
+
+#analyzer { display: none; margin-top: 12px; }
+
+.video-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+  align-items: start;
+}
+@media(max-width:600px){ .video-panel { grid-template-columns: 1fr; } }
+
+.video-wrap {
+  position: relative;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.video-wrap video { width: 100%; display: block; max-height: 360px; object-fit: contain; }
+.flabel {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.72); color: #fff; font-size: 12px; font-weight: 500;
+  padding: 4px 14px; border-radius: 20px; white-space: nowrap; pointer-events: none;
+}
+
+.pnl { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.pb {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border-radius: var(--radius-md); border: 0.5px solid var(--border);
+  background: var(--bg-primary); cursor: pointer; text-align: left; transition: all 0.12s;
+}
+.pb:hover { border-color: var(--border-md); background: var(--bg-secondary); }
+.pb.active { border-color: var(--green); background: var(--green-bg); }
+.pdot { width: 9px; height: 9px; border-radius: 50%; background: var(--border-md); flex-shrink: 0; transition: background 0.2s; }
+.pb.captured .pdot { background: var(--green); }
+.pname { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.ppct  { font-size: 11px; color: var(--text-secondary); }
+.ptag  { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--green-bg); color: var(--green-txt); display: none; }
+.pb.captured .ptag { display: inline-block; }
+
+button {
+  width: 100%; padding: 11px; border-radius: var(--radius-md);
+  border: 0.5px solid var(--border-md); background: var(--bg-primary);
+  font-size: 14px; font-weight: 500; color: var(--text-primary);
+  cursor: pointer; transition: background 0.15s; font-family: inherit;
+  margin-bottom: 6px;
+}
+button:hover:not(:disabled) { background: var(--bg-secondary); }
+button:disabled { opacity: 0.42; cursor: not-allowed; }
+button.primary {
+  background: var(--amber-bg); color: var(--amber-txt);
+  border-color: var(--amber);
+}
+button.primary:hover:not(:disabled) { background: #f5e3c4; }
+
+.pw { height: 3px; background: var(--bg-tertiary); border-radius: 2px; margin-bottom: 6px; }
+.pb2 { height: 100%; background: var(--amber); border-radius: 2px; width: 0%; transition: width 0.4s; }
+.status-line { font-size: 12px; color: var(--text-secondary); min-height: 16px; }
+
+.err {
+  background: var(--red-bg); border: 0.5px solid var(--red);
+  border-radius: var(--radius-md); padding: 10px 12px;
+  font-size: 12px; color: var(--red-txt); line-height: 1.5;
+  margin-top: 8px; display: none;
+}
+
+.previews { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-top: 10px; }
+.thumb { border-radius: var(--radius-md); overflow: hidden; aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-lbl { font-size: 10px; color: var(--text-secondary); text-align: center; margin-top: 3px; }
+
+#dashboard { display: none; margin-top: 24px; }
+
+.row4 { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 12px; }
+@media(max-width:600px){ .row4 { grid-template-columns: repeat(2,1fr); } }
+
+.metric { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 14px 16px; }
+.metric .lbl { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+.metric .val { font-size: 26px; font-weight: 500; line-height: 1; }
+.metric .sub { font-size: 11px; color: var(--text-secondary); margin-top: 5px; }
+
+.two-col { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-bottom: 12px; }
+@media(max-width:600px){ .two-col { grid-template-columns: 1fr; } }
+
+.pos-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pos-name { font-size: 12px; color: var(--text-secondary); width: 68px; flex-shrink: 0; }
+.bar-track { flex: 1; height: 6px; background: var(--bg-tertiary); border-radius: 3px; overflow: hidden; }
+.bar-fill  { height: 100%; border-radius: 3px; }
+.pos-score { font-size: 12px; font-weight: 500; width: 32px; text-align: right; flex-shrink: 0; }
+.pos-badge { font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; }
+
+.rating-pill { display: inline-block; font-size: 12px; font-weight: 500; padding: 3px 12px; border-radius: 20px; }
+
+.positions-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 12px; }
+@media(max-width:700px){ .positions-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:440px){ .positions-grid { grid-template-columns: 1fr; } }
+
+.pos-card { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.pos-card-head { padding: 12px 14px 10px; border-bottom: 0.5px solid var(--border); }
+.pos-card-title { font-size: 14px; font-weight: 500; color: var(--text-primary); display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.score-pill { font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: 20px; }
+.pos-card-bar { height: 4px; border-radius: 2px; background: var(--bg-tertiary); margin-top: 8px; overflow: hidden; }
+.pos-card-bar-fill { height: 100%; border-radius: 2px; }
+.pos-card-pct { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+.pos-card-body { padding: 12px 14px; }
+.section { margin-bottom: 10px; }
+.section:last-child { margin-bottom: 0; }
+.section-tag { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px; margin-bottom: 5px; }
+.tag-good    { background: var(--green-bg); color: var(--green-txt); }
+.tag-improve { background: var(--amber-bg); color: var(--amber-txt); }
+.tag-drill   { background: var(--blue-bg);  color: var(--blue-txt); }
+.section p   { font-size: 12px; color: var(--text-secondary); line-height: 1.55; }
+.headline    { font-size: 11px; font-style: italic; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.4; }
+
+.focus-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+.focus-row:last-child { margin-bottom: 0; }
+.focus-num { width: 24px; height: 24px; border-radius: 50%; background: var(--green-bg); color: var(--green-txt); font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.focus-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 3px; }
+.focus-desc  { font-size: 12px; color: var(--text-secondary); line-height: 1.55; }
+
+.section-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 12px; }
+
+footer { text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 3rem; }
+footer a { color: var(--amber-txt); text-decoration: none; }
+
+.reset-btn { width: auto; padding: 8px 18px; font-size: 12px; margin: 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-header">
+    <h1>Golf swing analyzer</h1>
+    <p>Upload your swing video for AI-powered analysis at 6 key positions — address through finish</p>
+  </div>
+
+  <div class="card" id="key-card">
+    <div class="card-lbl">Anthropic API key</div>
+    <div class="key-row">
+      <input type="password" id="api-key" placeholder="sk-ant-api03-..." autocomplete="off">
+    </div>
+    <p class="key-note">Your key is used only to call the Anthropic API directly from your browser — it is never stored or sent anywhere else. Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.</p>
+  </div>
+
+  <div id="upload-section">
+    <div id="dz" onclick="document.getElementById('fi').click()">
+      <div class="dz-icon">⛳</div>
+      <p><strong>Click to upload</strong> or drag &amp; drop your swing video</p>
+      <p style="margin-top:6px;font-size:12px">MP4 · MOV · WebM — face-on or down-the-line angle works best</p>
+    </div>
+    <input type="file" id="fi" accept="video/*">
+  </div>
+
+  <div id="analyzer">
+    <div class="video-panel">
+      <div>
+        <div class="video-wrap">
+          <video id="vid" playsinline muted controls></video>
+          <div class="flabel" id="flabel">Address — 5%</div>
+        </div>
+        <div class="previews" id="previews"></div>
+      </div>
+      <div>
+        <div class="pnl" id="pnl"></div>
+        <button id="capbtn" onclick="captureAll()">Capture all 6 frames</button>
+        <button id="runbtn" class="primary" disabled onclick="runAnalysis()">Analyze swing ↗</button>
+        <div class="pw"><div class="pb2" id="pb2"></div></div>
+        <div class="status-line" id="status"></div>
+        <div class="err" id="err"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dashboard">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="section-title" style="margin-bottom:0">Swing report</div>
+      <button class="reset-btn" onclick="resetAll()">Analyze another swing</button>
+    </div>
+
+    <div class="row4" id="db-metrics"></div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-lbl">Position scores</div>
+        <div id="db-bars"></div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;">
+        <div class="card-lbl">Swing radar</div>
+        <div style="position:relative;flex:1;min-height:220px;">
+          <canvas id="radar" role="img" aria-label="Radar chart of swing scores across 6 positions"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Position breakdown</div>
+    <div class="positions-grid" id="db-positions"></div>
+
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-lbl">Score across swing sequence</div>
+      <div style="position:relative;width:100%;height:160px;">
+        <canvas id="line" role="img" aria-label="Line chart of scores across swing sequence"></canvas>
+      </div>
+    </div>
+
+    <div class="card" id="db-focus">
+      <div class="card-lbl">Top 3 focus areas</div>
+    </div>
+  </div>
+
+  <footer>Golf Swing Analyzer · Powered by <a href="https://anthropic.com" target="_blank">Claude</a></footer>
+
+</div>
+
+<script>
+const POS_DEF = [
+  {name:'Address',   pct:0.05},
+  {name:'Takeaway',  pct:0.20},
+  {name:'Backswing', pct:0.38},
+  {name:'Top',       pct:0.52},
+  {name:'Impact',    pct:0.68},
+  {name:'Finish',    pct:0.88}
+];
+
+const vid = document.getElementById('vid');
+let dur = 0, frames = [], apiKey = '';
+
+const sc = s => s>=8?'#1D9E75':s>=6?'#BA7517':'#D85A30';
+const sb = s => s>=8?'#E1F5EE':s>=6?'#FAEEDA':'#FAECE7';
+const st = s => s>=8?'#0F6E56':s>=6?'#854F0B':'#993C1D';
+const sl = s => s>=8?'strong':s>=6?'solid':'focus';
+
+function setStatus(m){ document.getElementById('status').textContent = m; }
+function setProgress(p){ document.getElementById('pb2').style.width = p+'%'; }
+function showErr(m){ const e=document.getElementById('err'); e.textContent=m; e.style.display='block'; }
+function hideErr(){ document.getElementById('err').style.display='none'; }
+
+function buildPanel(){
+  const pnl=document.getElementById('pnl');
+  pnl.innerHTML='';
+  const prev=document.getElementById('previews');
+  prev.innerHTML='';
+  POS_DEF.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.style.cssText='width:100%;margin-bottom:0;';
+    b.className='pb'+(i===0?' active':'');
+    b.id='pb'+i;
+    b.innerHTML=`<div class="pdot" id="pd${i}"></div><div style="flex:1"><div class="pname">${p.name}</div><div class="ppct">${Math.round(p.pct*100)}% through clip</div></div><span class="ptag" id="ptag${i}">captured</span>`;
+    b.onclick=()=>seekTo(i);
+    pnl.appendChild(b);
+    prev.innerHTML+=`<div><div class="thumb" id="thumb${i}"><span style="font-size:10px;color:#888">${p.name}</span></div><div class="thumb-lbl">${p.name}</div></div>`;
+  });
+}
+
+function seekTo(idx){
+  vid.currentTime=dur*POS_DEF[idx].pct;
+  document.getElementById('flabel').textContent=POS_DEF[idx].name+' — '+Math.round(POS_DEF[idx].pct*100)+'%';
+  document.querySelectorAll('.pb').forEach((b,i)=>b.classList.toggle('active',i===idx));
+}
+
+document.getElementById('fi').addEventListener('change',e=>{ if(e.target.files[0]) loadVid(e.target.files[0]); });
+const dz=document.getElementById('dz');
+dz.addEventListener('dragover',e=>e.preventDefault());
+dz.addEventListener('drop',e=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f&&f.type.startsWith('video/')) loadVid(f); });
+
+function loadVid(file){
+  vid.src=URL.createObjectURL(file);
+  vid.onloadedmetadata=()=>{
+    dur=vid.duration;
+    document.getElementById('upload-section').style.display='none';
+    document.getElementById('analyzer').style.display='block';
+    buildPanel(); seekTo(0);
+  };
+}
+
+function captureFrame(pct){
+  return new Promise(resolve=>{
+    vid.currentTime=dur*pct;
+    vid.addEventListener('seeked',function h(){
+      vid.removeEventListener('seeked',h);
+      const MAX=200;
+      const ratio=Math.min(MAX/(vid.videoWidth||640), MAX/(vid.videoHeight||360), 1);
+      const c=document.createElement('canvas');
+      c.width=Math.round((vid.videoWidth||640)*ratio);
+      c.height=Math.round((vid.videoHeight||360)*ratio);
+      c.getContext('2d').drawImage(vid,0,0,c.width,c.height);
+      resolve(c.toDataURL('image/jpeg',0.65).split(',')[1]);
+    });
+  });
+}
+
+async function captureAll(){
+  const btn=document.getElementById('capbtn');
+  btn.disabled=true; btn.textContent='Capturing…';
+  frames=[]; setProgress(0); hideErr();
+  for(let i=0;i<POS_DEF.length;i++){
+    seekTo(i);
+    await new Promise(r=>setTimeout(r,380));
+    const f=await captureFrame(POS_DEF[i].pct);
+    frames.push(f);
+    const th=document.getElementById('thumb'+i);
+    if(th) th.innerHTML=`<img src="data:image/jpeg;base64,${f}" alt="${POS_DEF[i].name}">`;
+    document.getElementById('pb'+i).classList.add('captured');
+    setProgress(Math.round((i+1)/POS_DEF.length*100));
+    setStatus(`Captured ${i+1}/6: ${POS_DEF[i].name}`);
+  }
+  setStatus('All 6 frames captured. Ready to analyze.');
+  btn.textContent='Re-capture frames'; btn.disabled=false;
+  document.getElementById('runbtn').disabled=false;
+}
+
+async function callAPI(body){
+  const key=document.getElementById('api-key').value.trim();
+  if(!key) throw new Error('Please enter your Anthropic API key above.');
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key': key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify(body)
+  });
+  if(!resp.ok){ const t=await resp.text(); throw new Error(`API ${resp.status}: ${t.slice(0,300)}`); }
+  return resp.json();
+}
+
+function parseJSON(raw){
+  const clean=raw.replace(/```json|```/g,'').trim();
+  const s=clean.indexOf('[')>=0&&clean.indexOf('{')>=0
+    ? Math.min(clean.indexOf('['),clean.indexOf('{'))
+    : Math.max(clean.indexOf('['),clean.indexOf('{'));
+  const openArr=clean.indexOf('['), openObj=clean.indexOf('{');
+  if(openArr>=0&&(openArr<openObj||openObj<0)){
+    return JSON.parse(clean.slice(openArr, clean.lastIndexOf(']')+1));
+  }
+  return JSON.parse(clean.slice(openObj, clean.lastIndexOf('}')+1));
+}
+
+async function runAnalysis(){
+  if(frames.length<6){ showErr('Please capture all 6 frames first.'); return; }
+  const btn=document.getElementById('runbtn');
+  btn.disabled=true; btn.textContent='Analyzing…';
+  hideErr(); setProgress(5); setStatus('Sending frames to Claude…');
+
+  const content=[];
+  POS_DEF.forEach((p,i)=>{
+    content.push({type:'text',text:`Image ${i+1}: "${p.name}" position (${Math.round(p.pct*100)}% through swing)`});
+    content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:frames[i]}});
+  });
+  content.push({type:'text',text:`You are an expert PGA golf instructor. Analyze each of the 6 swing position images.
+
+Return ONLY a JSON array with exactly 6 objects. No markdown, no explanation, just raw JSON:
+[
+  {"position":"Address","score":<1-10>,"headline":"<max 12 words>","positives":"<1 sentence>","improvements":"<1-2 sentences>","drill":"<1 specific drill sentence>"},
+  ... repeat for Takeaway, Backswing, Top, Impact, Finish ...
+]`});
+
+  let posResults, summary;
+  try {
+    const data=await callAPI({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content}]});
+    setProgress(65);
+    const raw=data.content?.map(b=>b.text||'').join('')||'';
+    posResults=parseJSON(raw);
+    if(!Array.isArray(posResults)||posResults.length<6) throw new Error('Expected 6 results, got: '+posResults.length);
+  } catch(e){ showErr('Analysis error: '+e.message); btn.disabled=false; btn.textContent='Retry analysis ↗'; setProgress(0); return; }
+
+  setStatus('Building summary…'); setProgress(75);
+  const avg=Math.round(posResults.reduce((s,r)=>s+(r.score||6),0)/posResults.length);
+  try {
+    const sp=`PGA instructor: given these 6 swing position scores, return the top 3 focus areas as JSON only (no markdown):
+{"overall_score":${avg},"rating":"<Beginner|Developing|Solid|Advanced|Elite>","focus_areas":[{"title":"<4 words max>","description":"<2 actionable sentences>"},{"title":"<4 words max>","description":"<2 actionable sentences>"},{"title":"<4 words max>","description":"<2 actionable sentences>"}]}
+
+Data:
+${posResults.map((r,i)=>`${POS_DEF[i].name}: ${r.score}/10 — ${r.improvements}`).join('\n')}`;
+    const sd=await callAPI({model:'claude-sonnet-4-6',max_tokens:500,messages:[{role:'user',content:sp}]});
+    setProgress(92);
+    summary=parseJSON(sd.content?.map(b=>b.text||'').join('')||'');
+  } catch(e){
+    summary={overall_score:avg,rating:'Developing',focus_areas:[
+      {title:'Swing plane',description:'Work on keeping the club on plane throughout the swing. Consistent plane leads to consistent ball striking.'},
+      {title:'Lead arm firmness',description:'Maintain a firmer lead arm through the backswing. This creates a wider arc and more consistent contact.'},
+      {title:'Finish position',description:'Commit to a full finish on every swing. A complete follow-through reflects proper mechanics throughout.'}
+    ]};
+  }
+
+  setProgress(100); setStatus('');
+  renderDashboard(posResults, summary);
+  btn.textContent='Re-analyze swing ↗'; btn.disabled=false;
+  setTimeout(()=>setProgress(0),1000);
+}
+
+function renderDashboard(results, summary){
+  document.getElementById('analyzer').style.display='none';
+  const dash=document.getElementById('dashboard');
+  dash.style.display='block';
+  dash.scrollIntoView({behavior:'smooth',block:'start'});
+
+  const scores=results.map(r=>r.score||6);
+  const bestIdx=scores.indexOf(Math.max(...scores));
+  const worstIdx=scores.indexOf(Math.min(...scores));
+
+  document.getElementById('db-metrics').innerHTML=`
+    <div class="metric"><div class="lbl">Overall score</div><div class="val" style="color:${sc(summary.overall_score)}">${summary.overall_score}<span style="font-size:14px;font-weight:400;color:var(--text-secondary)">/10</span></div>
+      <div class="sub"><span class="rating-pill" style="background:${sb(summary.overall_score)};color:${st(summary.overall_score)}">${summary.rating}</span></div></div>
+    <div class="metric"><div class="lbl">Strongest position</div><div class="val" style="font-size:18px;padding-top:4px">${POS_DEF[bestIdx].name}</div><div class="sub" style="color:${sc(scores[bestIdx])}">${scores[bestIdx]} / 10</div></div>
+    <div class="metric"><div class="lbl">Needs most work</div><div class="val" style="font-size:18px;padding-top:4px">${POS_DEF[worstIdx].name}</div><div class="sub" style="color:${sc(scores[worstIdx])}">${scores[worstIdx]} / 10</div></div>
+    <div class="metric"><div class="lbl">Positions analyzed</div><div class="val">6</div><div class="sub">address → finish</div></div>`;
+
+  const bars=document.getElementById('db-bars');
+  bars.innerHTML='';
+  results.forEach((r,i)=>{
+    const s=r.score||6;
+    bars.innerHTML+=`<div class="pos-row">
+      <span class="pos-name">${POS_DEF[i].name}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${s*10}%;background:${sc(s)}"></div></div>
+      <span class="pos-score" style="color:${sc(s)}">${s}/10</span>
+      <span class="pos-badge" style="background:${sb(s)};color:${st(s)}">${sl(s)}</span>
+    </div>`;
+  });
+
+  const grid=document.getElementById('db-positions');
+  grid.innerHTML='';
+  results.forEach((r,i)=>{
+    const s=r.score||6;
+    const card=document.createElement('div');
+    card.className='pos-card';
+    card.innerHTML=`
+      <div class="pos-card-head">
+        <div class="pos-card-title"><span>${POS_DEF[i].name}</span><span class="score-pill" style="background:${sb(s)};color:${st(s)}">${s}/10</span></div>
+        <div class="pos-card-bar"><div class="pos-card-bar-fill" style="width:${s*10}%;background:${sc(s)}"></div></div>
+        <div class="pos-card-pct">${Math.round(POS_DEF[i].pct*100)}% through swing</div>
+      </div>
+      <div class="pos-card-body">
+        <div class="headline">"${r.headline||''}"</div>
+        <div class="section"><span class="section-tag tag-good">What's working</span><p>${r.positives||''}</p></div>
+        <div class="section"><span class="section-tag tag-improve">Key improvement</span><p>${r.improvements||''}</p></div>
+        <div class="section"><span class="section-tag tag-drill">Drill</span><p>${r.drill||''}</p></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  const focusEl=document.getElementById('db-focus');
+  focusEl.innerHTML=`<div class="card-lbl">Top 3 focus areas</div>`+
+    (summary.focus_areas||[]).map((f,i)=>`
+      <div class="focus-row">
+        <div class="focus-num">${i+1}</div>
+        <div><div class="focus-title">${f.title}</div><div class="focus-desc">${f.description}</div></div>
+      </div>`).join('');
+
+  const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const tc=isDark?'rgba(255,255,255,0.45)':'rgba(0,0,0,0.38)';
+  const gc=isDark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)';
+  const labels=POS_DEF.map(p=>p.name);
+  const sdata=scores;
+
+  if(window._radarChart) window._radarChart.destroy();
+  if(window._lineChart)  window._lineChart.destroy();
+
+  window._radarChart=new Chart(document.getElementById('radar'),{
+    type:'radar',
+    data:{labels,datasets:[{data:sdata,borderColor:'#BA7517',backgroundColor:'rgba(186,117,23,0.1)',pointBackgroundColor:sdata.map(s=>sc(s)),pointRadius:4,borderWidth:1.5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{r:{min:0,max:10,ticks:{stepSize:2,color:tc,font:{size:10},backdropColor:'transparent'},pointLabels:{color:tc,font:{size:11}},grid:{color:gc},angleLines:{color:gc}}}}
+  });
+
+  window._lineChart=new Chart(document.getElementById('line'),{
+    type:'line',
+    data:{labels,datasets:[{data:sdata,borderColor:'#BA7517',backgroundColor:'rgba(186,117,23,0.07)',pointBackgroundColor:sdata.map(s=>sc(s)),pointRadius:5,fill:true,borderWidth:2,tension:0.35}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' Score: '+ctx.parsed.y+'/10'}}},
+      scales:{x:{ticks:{color:tc,font:{size:11}},grid:{color:gc},border:{color:gc}},y:{min:0,max:10,ticks:{stepSize:2,color:tc,font:{size:11}},grid:{color:gc},border:{color:gc}}}}
+  });
+}
+
+function resetAll(){
+  frames=[];
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('upload-section').style.display='block';
+  document.getElementById('analyzer').style.display='none';
+  document.getElementById('upload-section').scrollIntoView({behavior:'smooth',block:'start'});
+  vid.src='';
+  document.getElementById('pb2').style.width='0%';
+  document.getElementById('status').textContent='';
+  hideErr();
+}
+</script>
+</body>
+</html>
